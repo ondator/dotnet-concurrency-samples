@@ -9,7 +9,12 @@ using Newtonsoft.Json.Linq;
 
 namespace Concurrency.TaskCompletionSource
 {
-    public sealed class RpcClient
+    public interface IRpcClient
+    {
+        Task<TResponse> Send<TRequest, TResponse>(TRequest request, string uri);
+    }
+
+    public sealed class RpcClient : IRpcClient
     {
         private readonly BlockingCollection<(MessageType type, object payload, string uri, TaskCompletionSource<object> tcs, Type responseType)> _queue = new BlockingCollection<(MessageType type, object payload, string uri, TaskCompletionSource<object> tcs, Type responseType)>();
         private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
@@ -46,13 +51,13 @@ namespace Concurrency.TaskCompletionSource
                 if (_queue.TryTake(out var item, 1000))
                 {
                     var (type, payload, uri, tcs, responseType) = item;
-                    var messageId = Guid.NewGuid().ToString();
-                    var json = JsonConvert.SerializeObject(new[]{type, messageId, uri, payload});
+                    var requestId = Guid.NewGuid().ToString();
+                    var json = JsonConvert.SerializeObject(new[]{type, requestId, uri, payload});
                     var bytesCount = Encoding.UTF8.GetByteCount(json);
                     var buffer = new byte[bytesCount];
                     Encoding.UTF8.GetBytes(json, 0, json.Length, buffer, 0);
                     await _socket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, token);
-                    _ongoingTransactions.AddOrUpdate(messageId, _ => (tcs, responseType),
+                    _ongoingTransactions.AddOrUpdate(requestId, _ => (tcs, responseType),
                         (_, __) => (tcs, responseType));
                 }
             }
