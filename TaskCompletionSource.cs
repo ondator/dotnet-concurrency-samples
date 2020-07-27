@@ -9,14 +9,14 @@ using Newtonsoft.Json.Linq;
 
 namespace Concurrency.TaskCompletionSource
 {
-    public sealed class WampClient
+    public sealed class RpcClient
     {
         private readonly BlockingCollection<(MessageType type, object payload, string uri, TaskCompletionSource<object> tcs, Type responseType)> _queue = new BlockingCollection<(MessageType type, object payload, string uri, TaskCompletionSource<object> tcs, Type responseType)>();
         private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
         private readonly ClientWebSocket _socket = new ClientWebSocket();
         private readonly ConcurrentDictionary<string, (TaskCompletionSource<object>, Type)> _ongoingTransactions = new ConcurrentDictionary<string, (TaskCompletionSource<object>, Type)>();
         
-        public WampClient(Uri uri)
+        public RpcClient(Uri uri)
         {
             _socket.ConnectAsync(uri, _cancellation.Token);
             _ = Task.Run(()=>SendLoop(_cancellation.Token), _cancellation.Token);
